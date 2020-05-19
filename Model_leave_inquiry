@@ -1,0 +1,151 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import nltk
+import re
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+import keras
+from keras.models import Sequential
+from keras.layers import Dense
+from tensorflow.keras.preprocessing import sequence
+from keras.preprocessing.text import Tokenizer
+from keras.utils import to_categorical
+from keras.layers import LSTM 
+from keras.layers import Embedding, Dense, Dropout
+
+train= pd.read_excel("C:\\Users\\shiza.abid\\Desktop\\DataSetLeave_FinalMerge.xlsx")
+#train.shape
+
+docs= train['Text']
+
+#sns.countplot(train.Class)
+
+def tokenizing(text):
+    
+    #breaking each word and making them tokens
+    tokens=[word.lower() for sent in nltk.sent_tokenize(text) for word in nltk.word_tokenize(sent)]
+    
+    #storing only alpha tokens
+    filtered_tokens=[]
+    for token in tokens:
+        if (re.search('[a-zA-Z]', token)):
+            filtered_tokens.append(token)
+
+    return filtered_tokens
+  
+  
+tokens = []
+#count=1
+for i in docs:
+    #print(count)
+    temp = tokenizing(i)
+    #count+=1
+    tokens.append(temp)
+    
+#print(docs[1],"\n\n",tokens[1])
+
+x, y = np.asarray(tokens) , np.asarray(train['Class'])
+
+
+#print(x[2],"\n\n",y[2])
+
+#print("\n",x[5],"\n\n", y[5])
+
+#y[1],x[1]
+
+le = LabelEncoder()
+
+y = le.fit_transform(y)
+
+#y[:5]
+y= to_categorical(y)
+
+#y[:5]
+
+xtrain, xtest, ytrain, ytest= train_test_split(x, y, test_size= 0.3, random_state=100)
+
+#xtest.shape,xtrain.shape
+
+#xtest = ([list(['I','have','not','taken','any','leave','in','the','past','three','months'])])
+
+#ytrain[:5]
+
+max_words = 20000
+tok = Tokenizer(num_words=max_words)
+tok.fit_on_texts(x)
+
+#len(tok.word_index) #Returns the unique words in document
+#print(tok.word_index)
+
+sequences = tok.texts_to_sequences(x)
+test_sequences = tok.texts_to_sequences(xtest)
+
+#test_sequences[1],xtest[1],sequences[1],x[1]
+
+max_len =200
+
+sequences_matrix = sequence.pad_sequences(sequences,maxlen=max_len)
+
+test_sequences_matrix = sequence.pad_sequences(test_sequences,maxlen=max_len)
+#len(test_sequences_matrix[1])
+
+def model():
+    
+    #Create model by simply calling the Sequential constructor
+    
+    model = Sequential()
+    
+    #This layer can only be used as the first layer in a model.
+    
+    model.add(Embedding(max_words,50,input_length=max_len))
+    
+    #specify number of neurons in lstm layer and the activation function that we want to use.
+    
+    model.add(LSTM(64, activation='tanh',dropout=0.01))
+    
+    #specify number of neurons in dense layer and the activation function that we want to use.
+    
+    model.add(Dense(50, activation='relu'))
+    
+    #add dropout to prevent overfitting
+    
+    model.add(Dropout(0.01))
+    
+    #and we create our output layer with two nodes as we have 2 class labels.
+    
+    print(model.add(Dense(3, activation='softmax')))
+    
+    #Now for training, we need to define an optimizer, loss measure and the error metric.
+    # We will use the binary_crossentropy as our loss measure. 
+    #As for the minimization algorithm, we will use "rmsprop".
+    #This optimizer is usually a good choice for recurrent neural networks.
+    
+    
+    model.compile(loss='binary_crossentropy', optimizer='rmsprop',metrics=['accuracy'])
+    return model
+    
+
+
+
+m= model()
+
+m.fit(sequences_matrix,y,epochs=15, validation_split=0.2)
+
+
+#len(test_sequences_matrix),len(ytest)
+
+#accuracy = m.evaluate(test_sequences_matrix,ytest)
+
+#print('Test set\n\nLoss: {:0.3f}\n\nAccuracy: {:0.3f}'.format(accuracy[0],accuracy[1]))
+
+predict=m.predict_classes(test_sequences_matrix)
+#for a in range(len(predict)):
+    #print(xtest[a],predict[a])
+    
+#save your model
+
+m.save('Leave_or_inquiry_model.h5')
+
+#m.summary()
